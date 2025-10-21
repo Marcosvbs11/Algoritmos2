@@ -1,0 +1,21 @@
+{
+"name": "sgbd-sim",
+"version": "1.0.0",
+"type": "module",
+"scripts": {
+"dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+"build:ts": "tsc",
+"start": "node dist/server.js",
+"build:front": "esbuild public/app.ts --bundle --outfile=public/app.js --platform=browser --sourcemap",
+"prepare": "mkdir -p data || true"
+},
+"dependencies": {
+"express": "^4.18.2",
+"cors": "^2.8.5"
+},
+"devDependencies": {
+"ts-node-dev": "^2.0.0",
+"typescript": "^5.0.0",
+"esbuild": "^0.18.0"
+}
+}
