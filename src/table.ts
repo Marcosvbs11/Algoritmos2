@@ -1,65 +1,65 @@
-import { pathForTable, saveJSON, loadJSON } from './utils';
+import fs from "fs";
+import path from "path";
+import { TableData, TableSchema } from "./types";
 
+const dataDir = path.join(__dirname, "data");
 
-export type Schema = {
-fields: string[];
-pk: string;
-fks: Record<string, [string, string]>; // campo -> [tabela, campoRef]
-};
-
-
-export type RecordRow = Record<string, any>;
-
-
-export class Table {
-name: string;
-schema: Schema;
-records: RecordRow[];
-
-
-constructor(name: string, schema: Schema, records: RecordRow[] = []) {
-this.name = name;
-this.schema = schema;
-this.records = records;
+function ensureDir() {
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
-
-save() {
-saveJSON(pathForTable(this.name), { schema: this.schema, records: this.records });
+export function pathForTable(name: string) {
+  return path.join(dataDir, `${name}.json`);
 }
 
-
-static load(name: string): Table {
-const p = pathForTable(name);
-if (!require('fs').existsSync(p)) throw new Error(`Tabela ${name} não encontrada`);
-const data = loadJSON(p);
-return new Table(name, data.schema as Schema, data.records || []);
+export function tableExists(name: string): boolean {
+  return fs.existsSync(pathForTable(name));
 }
 
-
-static exists(name: string) {
-return require('fs').existsSync(pathForTable(name));
+export function saveTable(name: string, data: TableData) {
+  ensureDir();
+  fs.writeFileSync(pathForTable(name), JSON.stringify(data, null, 2));
 }
 
-
-insert(record: RecordRow, loadTable: (n: string) => Table) {
-// valida PK
-const pk = this.schema.pk;
-if (this.records.some(r => String(r[pk]) === String(record[pk]))) {
-throw new Error(`Violação de PK: valor ${record[pk]} já existe em ${this.name}`);
+export function loadTable(name: string): TableData {
+  const filePath = pathForTable(name);
+  if (!fs.existsSync(filePath)) throw new Error(`Tabela ${name} não existe`);
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-
-// validar FKs
-for (const [fkField, [refTable, refField]] of Object.entries(this.schema.fks)) {
-const val = record[fkField];
-const refT = loadTable(refTable);
-const found = refT.records.some(r => String(r[refField]) === String(val));
-if (!found) throw new Error(`Violação de FK: ${val} não encontrado em ${refTable}.${refField}`);
+export function createTable(name: string, schema: TableSchema) {
+  if (tableExists(name)) throw new Error(`Tabela ${name} já existe`);
+  saveTable(name, { schema, records: [] });
 }
 
-
-this.records.push(record);
-this.save();
+export function insertRecord(name: string, record: Record<string, any>) {
+  const table = loadTable(name);
+  table.records.push(record);
+  saveTable(name, table);
 }
+
+export function selectRecords(
+  tableName: string,
+  fields: string[],
+  joinTableName?: string,
+  joinKey?: [string, string]
+) {
+  const main = loadTable(tableName);
+  let result = main.records.map((r) => {
+    const out: Record<string, any> = {};
+    for (const f of fields) out[f] = r[f];
+    return out;
+  });
+
+  if (joinTableName && joinKey) {
+    const joinTable = loadTable(joinTableName);
+    result = result.map((r) => {
+      const joinRow = joinTable.records.find(
+        (jr) => String(jr[joinKey[1]]) === String(r[joinKey[0]])
+      );
+      return { ...r, ...joinRow };
+    });
+  }
+
+  return result;
 }

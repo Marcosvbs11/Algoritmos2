@@ -1,39 +1,129 @@
-type Schema = { fields: string[]; pk: string; fks: Record<string, string>; };
-type RecordType = Record<string, string | number>;
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
 
-document.getElementById('createTableBtn')!.addEventListener('click', async () => {
-  const name = (document.getElementById('tableName') as HTMLInputElement).value;
-  const schemaText = (document.getElementById('schema') as HTMLTextAreaElement).value;
-  const schema: Schema = JSON.parse(schemaText);
-  await fetch('/create-table', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, schema })
-  });
-  alert('Tabela criada com sucesso!');
+const app = express();
+app.use(express.json());
+
+// Servir os arquivos estáticos (HTML, CSS, JS)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// -------------------- Funções auxiliares --------------------
+function pathForTable(name: string) {
+  return path.join(__dirname, 'data', `${name}.json`);
+}
+
+function saveJSON(filePath: string, data: any) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function loadJSON(filePath: string) {
+  if (!fs.existsSync(filePath)) throw new Error(`Arquivo ${filePath} não encontrado`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+// -------------------- Rotas POST CRUD --------------------
+app.post('/create-table', (req, res) => {
+  try {
+    const { name, schema } = req.body;
+    if (!name || !schema) throw new Error('Campos name e schema são obrigatórios');
+    const filePath = pathForTable(name);
+    if (fs.existsSync(filePath)) throw new Error(`Tabela ${name} já existe`);
+    saveJSON(filePath, { schema, records: [] });
+    res.json({ success: true, message: `Tabela ${name} criada!` });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
 });
 
-document.getElementById('insertBtn')!.addEventListener('click', async () => {
-  const tableName = (document.getElementById('insertTable') as HTMLInputElement).value;
-  const recordText = (document.getElementById('record') as HTMLTextAreaElement).value;
-  const record: RecordType = JSON.parse(recordText);
-  await fetch('/insert', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tableName, record })
-  });
-  alert('Registro inserido!');
+app.post('/insert', (req, res) => {
+  try {
+    const { tableName, record } = req.body;
+    if (!tableName || !record) throw new Error('Campos tableName e record são obrigatórios');
+
+    const filePath = pathForTable(tableName);
+    const table = loadJSON(filePath);
+    table.records.push(record);
+    saveJSON(filePath, table);
+
+    res.json({ success: true, message: 'Registro inserido!' });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
 });
 
-document.getElementById('selectBtn')!.addEventListener('click', async () => {
-  const tableName = (document.getElementById('selectTable') as HTMLInputElement).value;
-  const fields = (document.getElementById('fields') as HTMLInputElement).value.split(',').map(f => f.trim());
-  const joinTableName = (document.getElementById('joinTable') as HTMLInputElement).value;
-  const joinKeyText = (document.getElementById('joinKey') as HTMLInputElement).value;
-  const joinKey = joinKeyText ? (joinKeyText.split(',') as [string, string]) : undefined;
+app.post('/select', (req, res) => {
+  try {
+    const { tableName, fields, joinTableName, joinKey } = req.body;
+    if (!tableName || !fields) throw new Error('Campos tableName e fields são obrigatórios');
 
-  const res = await fetch('/select', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tableName, fields, joinTableName, joinKey })
-  });
-  const data = await res.json();
-  (document.getElementById('result') as HTMLElement).textContent = JSON.stringify(data, null, 2);
+    const mainTable = loadJSON(pathForTable(tableName));
+    let result = mainTable.records.map((r: Record<string, any>) => {
+      const out: Record<string, any> = {};
+      for (const f of fields) out[f] = r[f];
+      return out;
+    });
+
+    // Se houver join
+    if (joinTableName && joinKey) {
+      const joinTable = loadJSON(pathForTable(joinTableName));
+      result = result.map((r: Record<string, any>) => {
+        const joinRow = joinTable.records.find(
+          (jr: any) => String(jr[joinKey[1]]) === String(r[joinKey[0]])
+        );
+        return { ...r, ...joinRow };
+      });
+    }
+
+    res.json({ rows: result });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
 });
+
+// -------------------- Seed inicial --------------------
+function seedExample() {
+  const alunosPath = pathForTable('alunos');
+  if (fs.existsSync(alunosPath)) return;
+
+  const alunos = {
+    schema: { fields: ['id_aluno', 'nome', 'cpf'], pk: 'id_aluno', fks: {} },
+    records: [
+      { id_aluno: 'A001', nome: 'Ana Silva', cpf: '111.111.111-11' },
+      { id_aluno: 'A002', nome: 'Bruno Costa', cpf: '222.222.222-22' }
+    ]
+  };
+
+  const cursos = {
+    schema: { fields: ['id_curso', 'nome_curso'], pk: 'id_curso', fks: {} },
+    records: [
+      { id_curso: 'C01', nome_curso: 'Redes' },
+      { id_curso: 'C02', nome_curso: 'SW' }
+    ]
+  };
+
+  const matriculas = {
+    schema: {
+      fields: ['id_mat', 'id_aluno', 'id_curso', 'semestre'],
+      pk: 'id_mat',
+      fks: {
+        id_aluno: ['alunos', 'id_aluno'],
+        id_curso: ['cursos', 'id_curso']
+      }
+    },
+    records: [
+      { id_mat: 'M001', id_aluno: 'A001', id_curso: 'C01', semestre: '2025.1' }
+    ]
+  };
+
+  saveJSON(alunosPath, alunos);
+  saveJSON(pathForTable('cursos'), cursos);
+  saveJSON(pathForTable('matriculas'), matriculas);
+}
+
+seedExample();
+
+// -------------------- Inicia servidor --------------------
+const port = Number(process.env.PORT || 3000);
+app.listen(port, () => console.log(`Server iniciado em http://localhost:${port}`));

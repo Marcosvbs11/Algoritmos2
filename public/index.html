@@ -1,13 +1,33 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SGBD Simulado — Interface</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerenciador de Tabelas</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="app">Abra public/index.html (conteúdo completo entregue no projeto)</div>
-<script type="module" src="/app.js"></script>
+  <h1>📋 Gerenciador de Tabelas</h1>
+
+  <section id="criar-tabela">
+    <h2>➕ Criar Tabela</h2>
+    <input id="tableName" type="text" placeholder="Nome da tabela" />
+    <button id="btnCreate">Criar Tabela</button>
+  </section>
+
+  <section id="inserir-registro">
+    <h2>🧾 Inserir Registro</h2>
+    <input id="tableForInsert" type="text" placeholder="Tabela" />
+    <textarea id="recordData" placeholder='{"nome": "João", "idade": 20}'></textarea>
+    <button id="btnInsert">Inserir</button>
+  </section>
+
+  <section id="consultar">
+    <h2>🔍 Consultar Tabelas</h2>
+    <button id="btnList">Listar Tabelas</button>
+    <div id="output"></div>
+  </section>
+
+  <script src="script.js"></script>
 </body>
 </html>
