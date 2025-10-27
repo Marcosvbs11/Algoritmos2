@@ -1,0 +1,29 @@
+{
+  "schema": {
+    "fields": [
+      "id_mat",
+      "id_aluno",
+      "id_curso",
+      "semestre"
+    ],
+    "pk": "id_mat",
+    "fks": {
+      "id_aluno": [
+        "alunos",
+        "id_aluno"
+      ],
+      "id_curso": [
+        "cursos",
+        "id_curso"
+      ]
+    }
+  },
+  "records": [
+    {
+      "id_mat": "M001",
+      "id_aluno": "A001",
+      "id_curso": "C01",
+      "semestre": "2025.1"
+    }
+  ]
+}

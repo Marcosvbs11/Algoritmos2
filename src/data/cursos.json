@@ -1,0 +1,20 @@
+{
+  "schema": {
+    "fields": [
+      "id_curso",
+      "nome_curso"
+    ],
+    "pk": "id_curso",
+    "fks": {}
+  },
+  "records": [
+    {
+      "id_curso": "C01",
+      "nome_curso": "Redes"
+    },
+    {
+      "id_curso": "C02",
+      "nome_curso": "Software"
+    }
+  ]
+}
